@@ -1,7 +1,7 @@
 import pygame
 import random
 
-screen_x = 250
+screen_x = 400
 screen_y = 600
 pygame.init()
 screen = pygame.display.set_mode((screen_x, screen_y))
@@ -9,20 +9,40 @@ pygame.display.set_caption("PyTris")
 icon = pygame.image.load("Assets/icon.png")
 pygame.display.set_icon(icon)
 clock = pygame.time.Clock()
+images = {
+    'I': pygame.image.load('Assets/I-block.png'),
+    'L': pygame.image.load('Assets/L-block.png'),
+    'J': pygame.image.load('Assets/J-block.png'),
+    'S': pygame.image.load('Assets/S-block.png'),
+    'Z': pygame.image.load('Assets/Z-block.png'),
+    'O': pygame.image.load('Assets/O-block.png'),
+    'T': pygame.image.load('Assets/T-block.png')
+}
+
+font = pygame.font.Font("Assets/Retro Gaming.ttf", 32)
 
 
 class Player:
     def __init__(self):
         self.grid = [[(0, 0, 0) for x in range(10)] for y in range(24)]
+        self.score = 0
+
+    def show_score(self):
+        score_card = font.render("SCORE", True, (255, 255, 255))
+        player_score = font.render(f"{self.score}".zfill(5), True, (255, 255, 255))
+        screen.blit(score_card, (265, 30))
+        screen.blit(player_score, (265, 60))
 
     def check_clear(self):
         flag = True
         for y in range(len(self.grid)):
             if self.grid[y].count((0, 0, 0)) == 0:
+                self.score += 10
                 flag = False
                 for i in range(y-1, -1, -1):
                     self.grid[i+1] = self.grid[i]
                 self.grid[0] = [(0, 0, 0) for x in range(10)]
+
         if not flag:
             self.check_clear()
 
@@ -37,10 +57,11 @@ new = Player()
 
 
 class Tetromino:
-    def __init__(self, x, y, s):
+    def __init__(self, x, y, s, ghost=False):
         self.s = s
         self.x = x
         self.y = y
+        self.ghost = ghost
         global new
         if self.s == 'I':
             self.location = [[self.y, self.x], [self.y + 1, self.x], [self.y + 2, self.x], [self.y + 3, self.x]]
@@ -104,7 +125,7 @@ class Tetromino:
 
     def collide(self, player=new):
         for i in self.location:
-            if player.grid[i[0]][i[1]] != (0, 0, 0):
+            if player.grid[i[0]][i[1]] != (0, 0, 0) and player.grid[i[0]][i[1]] != (255, 255, 255):
 
                 return True
         return False
@@ -158,11 +179,32 @@ class Tetromino:
                     i[1] -= x
             self.fill(new, self.color)
 
+    def hard_drop(self):
+        self.fill(new, (0, 0, 0))
+        while not self.collide() and self.y + self.height < 24:
+            if max(self.location)[0] + 1 < 24:
+                self.fill(new, (0, 0, 0))
+                self.y += 1
+                self.center[0] += 1
+                for pos in self.location:
+                    pos[0] += 1
+        if self.y + self.height < 24:
+            self.y -= 1
+            self.center[0] -= 1
+            for pos in self.location:
+                pos[0] -= 1
+        if self.ghost:
+            self.color = (255, 255, 255)
+        self.fill(new, self.color)
+
 
 minos = ['I', 'L', 'J', 'S', 'Z', 'T', 'O']
-block = Tetromino(0, 0, random.choice(minos))
+shape = random.choice(minos)
+block = Tetromino(4, 0, shape)
+
 bg = pygame.image.load('Assets/bg.png')
 
+hold_shape = 0
 
 if __name__ == '__main__':
     done = False
@@ -184,10 +226,19 @@ if __name__ == '__main__':
         elif keys[pygame.K_LEFT] and block.x - 1 >= 0:
             block.move(-1, 0)
             count = 0
+        elif keys[pygame.K_SPACE]:
+            block.hard_drop()
+        elif keys[pygame.K_h]:
+            block.fill(new, (0, 0, 0))
+            if hold_shape != 0:
+                shape = hold_shape
+            hold_shape = block.s
+            block = Tetromino(4, 0, shape)
         if keys[pygame.K_ESCAPE]:
             break
         screen.fill((0, 0, 0))
         screen.blit(bg, (0, 0))
+        shape = random.choice(minos)
 
         new.draw(screen)
         if block.y + block.height < 24:
@@ -199,7 +250,8 @@ if __name__ == '__main__':
                 count += 1
                 if count >= 2:
                     new.check_clear()
-                    block = Tetromino(0, 0, random.choice(minos))
+                    block = Tetromino(4, 0, shape)
+
         elif block.y + block.height == 24:
             prev = block.y
             if block.y == 0:
@@ -208,9 +260,13 @@ if __name__ == '__main__':
                 count += 1
                 if count >= 2:
                     new.check_clear()
-                    block = Tetromino(0, 0, random.choice(minos))
+                    block = Tetromino(4, 0, shape)
 
         else:
             new.check_clear()
-            block = Tetromino(0, 0, random.choice(minos))
+            block = Tetromino(4, 0, shape)
+
+        if hold_shape != 0:
+            screen.blit(images[hold_shape], (315, 160))
+        new.show_score()
         pygame.display.flip()
